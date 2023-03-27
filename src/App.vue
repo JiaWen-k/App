@@ -1,23 +1,25 @@
 <template>
   <div id="main">
   <label for="weather" style="font-size:40px; font-family: 'DejaVu Sans Mono';font-weight: bolder;text-align:center;display:block;">Service</label>
+    <el-button type="primary" @click="open1">Sign Up</el-button>
+    <el-button type="primary" @click="open2">Sign In</el-button>
+
   <hr>
   <div id="service">
   <div id="weather">
+
     <label for="weather" style="font-size:25px; font-family:'DejaVu Sans Mono';font-weight: bolder;margin-left: 40px">weather forecast</label>
     <div class="picture-1"> </div>
     <div style="width: 300px">
-    <el-form :inline="true" :model="this.formInline" class="demo-form-inline" >
+    <el-form :inline="true" :model="this.weather" class="demo-form-inline" >
       <el-form-item label="city" style="margin-top: 20px;margin-left: 36px">
-        <el-input v-model="formInline.city" placeholder="city"/>
+        <el-input v-model="weather.city" placeholder="city"/>
       </el-form-item>
       <br>
-      <el-form-item label="API code">
-        <el-input v-model="formInline.API" placeholder="Your API"/>
-      </el-form-item>
       <br>
       <el-form-item>
-        <el-button type="primary" @click="timerW" style="margin-left: 100px">Query</el-button>
+        <el-button type="primary" @click="this.open3('weather')" style="margin-left: 70px">API</el-button>
+        <el-button type="primary" @click="timerW" style="margin-left: 40px">Query</el-button>
       </el-form-item>
     </el-form>
     </div>
@@ -31,6 +33,7 @@
           <el-form-item style="width:100%; margin-top: 20px;margin-left: 36px">
           <el-input  style="width:100px;"  v-model="translate.inputLanguage" /> <div class="picture-2"> </div><el-input  style="width:100px;"  v-model="translate.outputLanguage"/>
           <el-button type="primary" @click="onSubmitT" style="margin-left: 100px">Translate</el-button>
+            <el-button type="primary" onclick="this.open3('translate')">API</el-button>
           </el-form-item>
           <el-form-item style="width:40%; margin-top: 20px;margin-left: 36px">
             <el-input   type="textarea" :rows="10" placeholder="input" v-model="translate.input"/>
@@ -56,12 +59,17 @@ export default {
   name: 'App',
   data() {
     return {
+      User:{
+        name:'',
+        weather:'',
+        translate:'',
+        SignIn:'N',
+      },
       timer:{
         weatherTimer:''
       },
-      formInline: {
+      weather: {
         city: '',
-        API: '',
       },
       translate:{
         input:'',
@@ -163,37 +171,129 @@ export default {
     }
   },
       methods: {
-        onSubmitW() {
-            console.time("Test code");
+    //displaying the Sign up window for user
+        open1() {
+          this.$prompt('Please enter the user name', 'Sign up', {
+            confirmButtonText: 'Confirm',
+            cancelButtonText: 'cancel',
+          }).then(({ value }) => {
+            this.SignUp(value)
+          }).catch(() => {
+            this.$message({
+              type: 'info',
+              message: 'cancel the Sign up'
+            });
+          });
+        },
+        //displaying the Sign In window for user
+        open2() {
+          this.$prompt('Please enter the user name', 'Sign In', {
+            confirmButtonText: 'Confirm',
+            cancelButtonText: 'cancel',
+          }).then(({ value }) => {
+            this.SignIn(value)
+          }).catch(() => {
+            this.$message({
+              type: 'info',
+              message: 'cancel the Sign up'
+            });
+          });
+        },
+        //displaying the API key change window for user
+         open3(service) {
+          if(this.User.username===null){
+            this.$message({
+              type: 'info',
+              message: 'please Sign in',
+            });
+          }
+          this.$prompt('Set you weather API', 'API', {
+            confirmButtonText: 'Confirm',
+            cancelButtonText: 'cancel',
+          }).then(({ value }) => {
+            this.API(value,service)
+            this.$message({
+              type: 'success',
+              message: 'Your API is:' + value,
+            });
+          }).catch(() => {
+            this.$message({
+              type: 'info',
+              message: 'cancel'
+            });
+          });
+        },
+        SignUp(name){
+          let xhr = new XMLHttpRequest();
+          let url = 'http://localhost:3000?function=SignUp&username='+name
+          xhr.open('GET', url, false);
+          xhr.send();
+          let data = eval('(' + xhr.response + ')')
+          this.$message({
+            type: data.state,
+            message: data.message,
+          });
+        },
+        SignIn(name){
+          let xhr = new XMLHttpRequest();
+          let url = 'http://localhost:3000?function=SignIn&username='+name
+          xhr.open('GET', url, false);
+          xhr.send();
+          this.User.SignIn='Y'
+          let data = eval('(' + xhr.response + ')')
+          this.$message({
+            type: data.state,
+            message: data.message,
+          });
+          this.User=data.data
+        },
+        API(API,service){
+          if(this.User.SignIn==='N'){
+            this.$message("please login in first")
+          }else {
+            this.User['service']=API
             let xhr = new XMLHttpRequest();
-            let url2 = 'https://api.openweathermap.org/data/2.5/forecast?'
-            let param='&q=' + this.formInline.city+'&appid=' + this.formInline.API
-            let url = 'http://localhost:3000?url='+url2+param;
+            let url = 'http://localhost:3000?function=API&API=' + API + '&name=' + this.User.username + '&service=' + service
+            xhr.open('GET', url, false);
+            xhr.send();
+          }
+        },
+        onSubmitW() {
+            let xhr = new XMLHttpRequest();
+            let param = 'q=' + this.weather.city + '&function=weather' + '&API=' + this.User.weather
+            let url = 'http://localhost:3000?' + param;
+            console.time("Test")
+            const timestamp = (new Date()).valueOf();
+            console.log("The timestamp at the time of sending")
+            console.log(timestamp);
             xhr.open('GET', url, false);
             xhr.send();
             let data = eval('(' + xhr.response + ')')
-            if(data.cod!==200){
-              this.$message('Incorrect API or city')
+            console.timeEnd("Test");
+            if (data.cod !== '200') {
+              this.$message(data.message)
               clearInterval(this.timer.weatherTimer)
-            }else {
+            } else {
               this.drawChart(data)
             }
-            console.timeEnd("Test code");
-          //API(9291e6dc6828238922ecc80b183eb2a5)
+            //API(9291e6dc6828238922ecc80b183eb2a5)
         },
         timerW(){
+          if(this.User.SignIn==='N'){
+            this.$message("please login in first")
+          }else {
           clearInterval(this.timer.weatherTimer)
           this.onSubmitW()
           this.timer.weatherTimer=setInterval(this.onSubmitW,15000)
+          }
         },
         onSubmitT() {
           let xhr = new XMLHttpRequest();
-          let  str='20230206001552138'+this.translate.input+this.translate.salt+'VXuZMtlVmeDWVdxtxyTB'
+          let str='20230206001552138'+this.translate.input+this.translate.salt+'VXuZMtlVmeDWVdxtxyTB'
           let Sign = Md5(str);
-          let url2='http://api.fanyi.baidu.com/api/trans/vip/translate?';
           let inputLanguage=this.getKey(this.translate.inputLanguage)
           let outputLanguage=this.getKey(this.translate.outputLanguage)
-          let url = 'http://localhost:3000?url=' +url2+'&q='+this.translate.input+'&from='+inputLanguage+'&to='+outputLanguage+'&appid='+'20230206001552138'+'&salt='+'1435660288'+'&sign='+Sign;
+          let url = 'http://localhost:3000?q='+this.translate.input+'&from='+inputLanguage+'&to='+outputLanguage+'&appid='+this.User.translate+'&salt='+'1435660288'+'&sign='+Sign;
           xhr.open('GET', url, true);
           xhr.send();
           let data = eval('(' + xhr.response + ')')

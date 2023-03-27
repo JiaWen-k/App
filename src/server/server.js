@@ -16,46 +16,92 @@ app.all('*', (req, res, next) => {
     res.header('Content-Type', 'application/json;charset=utf-8');
     next();
 });
-const work1=new Worker('./extensionServer.js')
 const work2=new Worker('./database.js')
-work1.on('message', value => {
-    console.log(value)
-})
 app.get('', function (req, res) {
+    const timestamp = (new Date()).valueOf();
+    console.log("The timestamp at the time of receiving")
+    console.log(timestamp);
+    const start = process.hrtime();
     let arg = url.parse(req.url).query;
     let params = querystring.parse(arg);
-    let API=params.appid
-
-    let url2 = params.url+req.url.substr(req.url.lastIndexOf("?") + 2);
-    let options = {
-        url: url2,
-        method: 'POST',
-    }
-    let promise= new  Promise((resolve, reject) => {
-        work2.postMessage(API)
-        work1.postMessage(''),
-    // Check the database to see if this API is included before requesting data from a third-party server
-        work2.on('message', value => {
-            resolve(value)
-        })
-    })
-    promise.then(value => {
-        if (value === 'true') {
-                request(options, function (error, response, body) {
-                    if (error !== null) {
-                        console.log(error);
-                        return;
-                    }
-                    console.log('Data acquisition success')
-                    res.json(JSON.parse(response.body));
-                    res.end();
-                });
-        } else {
-            res.json({
-                "cod": "0"
-            })
+    // SignUp a user
+    if(params.function==='SignUp'){
+        let user={
+            state:'SignUp',
+            name:params.username
         }
-    })
+        let promise = new Promise((resolve, reject) => {
+            work2.postMessage(user)
+            work2.on('message', value => {
+                resolve(value)
+            })
+        })
+        promise.then(value => {
+                res.json({
+                    "state": value.state,
+                    "message":value.message
+                })
+                res.end()
+                return;
+        })
+    }// User SignIn
+    else if (params.function==='SignIn'){
+        let user={
+            state:'SignIn',
+            name:params.username
+        }
+        let promise = new Promise((resolve, reject) => {
+            work2.postMessage(user)
+            work2.on('message', value => {
+                resolve(value)
+            })
+        })
+        promise.then(value => {
+            res.json({
+                "state": value.state,
+                "message":value.message,
+                "data":value.data
+            })
+            res.end()
+            return;
+        })
+    }//Add or modify an API key for a user
+    else if(params.function==='API'){
+        let user={
+            state:'API',
+            service:params.service,
+            name:params.name,
+            API:params.API
+        }
+        work2.postMessage(user)
+        res.end()
+    } //Obtain data from a third-party server
+    else {
+        let url2,url3;
+        if(params.function==='weather') {
+             url2 = 'https://api.openweathermap.org/data/2.5/forecast?'
+             url3 = url2 + 'q=' + params.q + '&appid=' + params.API;
+        }else if(params.function==='translate'){
+             url2='http://api.fanyi.baidu.com/api/trans/vip/translate?';
+             url3=url2+'q='+params.q+'&from='+params.from+'&to='+params.to+'&appid='+params.appid+'&salt='+params.salt+'&sign='+params.sign;
+        }
+        // console.log(url3)
+            let options = {
+                url: url3,
+                method: 'POST',
+            }
+            request(options, function (error, response, body) {
+                        if (error !== null) {
+                            console.log(error);
+                            return;
+                        }
+                        // console.log('Data acquisition success')
+                        res.json(JSON.parse(response.body));
+                        res.end();
+                        const end = process.hrtime(start);
+                        console.log(end);
+            })
+    }
 
 })
 
